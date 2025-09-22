@@ -5,7 +5,6 @@ from pathlib import Path
 from datetime import datetime
 import shutil
 
-# --- Variáveis de Configuração ---
 # Obtém o caminho do diretório atual do script
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -13,15 +12,15 @@ BACKUP_DIR = BASE_DIR / "backups"
 EXPORTS_DIR = BASE_DIR / "exports"
 DB_PATH = DATA_DIR / "livraria.db"
 
-# --- Funções de Inicialização e Backup ---
+# Funções de inicialização e backup
 def inicializar_diretorios():
-    """Cria os diretórios de dados, backups e exports se eles não existirem."""
+    # Cria os diretórios de dados, backups e exports se eles não existirem
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(BACKUP_DIR, exist_ok=True)
     os.makedirs(EXPORTS_DIR, exist_ok=True)
 
 def conectar_db():
-    """Conecta-se ao banco de dados e cria a tabela de livros se ela não existir."""
+    # Conecta no banco de dados e cria a tabela de livros se ela não existir
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -37,7 +36,7 @@ def conectar_db():
     return conn
 
 def fazer_backup():
-    """Cria um backup do banco de dados na pasta de backups."""
+    # Cria o backup do banco de dados na pasta de backups
     agora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     backup_path = BACKUP_DIR / f"backup_livraria_{agora}.db"
     try:
@@ -47,16 +46,15 @@ def fazer_backup():
         print("Erro: Não foi possível fazer o backup. O arquivo do banco de dados não foi encontrado.")
 
 def limpar_backups():
-    """Mantém apenas os 5 backups mais recentes e exclui os mais antigos."""
+    # Deixa somente os 5 primeiros backups e exclui os mais antigos
     backups = sorted(BACKUP_DIR.glob("backup_livraria_*.db"), key=os.path.getmtime, reverse=True)
     if len(backups) > 5:
         for backup_antigo in backups[5:]:
             os.remove(backup_antigo)
             print(f"Backup antigo removido: {backup_antigo}")
 
-# --- Funções CRUD ---
 def adicionar_livro():
-    """Adiciona um novo livro ao banco de dados."""
+    # Adiciona um livro no banco de dados
     fazer_backup() # Backup antes da modificação
     titulo = input("Título do livro: ")
     autor = input("Autor: ")
@@ -75,7 +73,7 @@ def adicionar_livro():
     print("Livro adicionado com sucesso!")
 
 def exibir_livros():
-    """Exibe todos os livros cadastrados no banco de dados."""
+    # Mostra todos os livros 
     conn = conectar_db()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM livros")
@@ -92,7 +90,7 @@ def exibir_livros():
     print("--------------------------")
 
 def atualizar_preco():
-    """Atualiza o preço de um livro existente."""
+    # Atualiza o preço do livro
     exibir_livros()
     try:
         livro_id = int(input("ID do livro para atualizar o preço: "))
@@ -114,7 +112,7 @@ def atualizar_preco():
     conn.close()
 
 def remover_livro():
-    """Remove um livro do banco de dados."""
+    # Apaga um livro 
     exibir_livros()
     try:
         livro_id = int(input("ID do livro para remover: "))
@@ -135,7 +133,7 @@ def remover_livro():
     conn.close()
 
 def buscar_por_autor():
-    """Busca livros por autor."""
+    # Busco o livro pelo nome no autor
     autor_busca = input("Nome do autor para buscar: ")
     conn = conectar_db()
     cursor = conn.cursor()
@@ -152,9 +150,8 @@ def buscar_por_autor():
         print(f"Título: {livro[1]} | Ano: {livro[3]} | Preço: R${livro[4]:.2f}")
     print("------------------------------------------")
 
-# --- Funções CSV ---
 def exportar_para_csv():
-    """Exporta todos os dados do banco de dados para um arquivo CSV."""
+    # Exporta todos os livros para um arquivo CSV
     conn = conectar_db()
     cursor = conn.cursor()
     cursor.execute("SELECT titulo, autor, ano_publicacao, preco FROM livros")
@@ -168,13 +165,13 @@ def exportar_para_csv():
     csv_path = EXPORTS_DIR / "livros_exportados.csv"
     with open(csv_path, 'w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(["titulo", "autor", "ano_publicacao", "preco"]) # Cabeçalho
+        writer.writerow(["titulo", "autor", "ano_publicacao", "preco"]) 
         writer.writerows(livros)
 
     print(f"Dados exportados com sucesso para: {csv_path}")
 
 def importar_de_csv():
-    """Importa dados de um arquivo CSV para o banco de dados."""
+    # Insere os livros de um CSV no banco de dados
     csv_path = input(f"Informe o caminho do arquivo CSV (ex: {EXPORTS_DIR / 'livros.csv'}): ")
     if not os.path.exists(csv_path):
         print("Erro: O arquivo não foi encontrado.")
@@ -186,7 +183,7 @@ def importar_de_csv():
     
     with open(csv_path, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
-        next(reader) # Pula o cabeçalho
+        next(reader) 
         for row in reader:
             try:
                 titulo, autor, ano, preco = row
@@ -199,10 +196,9 @@ def importar_de_csv():
     conn.close()
     print("Dados importados com sucesso!")
 
-# --- Menu Principal e Lógica de Execução ---
 def main():
     inicializar_diretorios()
-    conectar_db().close()  # Apenas para garantir que o arquivo e a tabela existam na inicialização
+    conectar_db().close()  
 
     while True:
         print("\n--- Sistema de Gerenciamento de Livraria ---")
