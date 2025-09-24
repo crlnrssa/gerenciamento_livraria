@@ -5,6 +5,16 @@ from pathlib import Path
 from datetime import datetime
 import shutil
 
+# Tenta importar a biblioteca para gerar PDF
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    REPORTLAB_DISPONIVEL = True
+except ImportError:
+    REPORTLAB_DISPONIVEL = False
+
 # Obtém o caminho do diretório atual do script
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -12,7 +22,7 @@ BACKUP_DIR = BASE_DIR / "backups"
 EXPORTS_DIR = BASE_DIR / "exports"
 DB_PATH = DATA_DIR / "livraria.db"
 
-# Funções de inicialização e backup
+# Funções de inicialização e backup 
 def inicializar_diretorios():
     # Cria os diretórios de dados, backups e exports se eles não existirem
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -56,14 +66,41 @@ def limpar_backups():
 def adicionar_livro():
     # Adiciona um livro no banco de dados
     fazer_backup() # Backup antes da modificação
-    titulo = input("Título do livro: ")
-    autor = input("Autor: ")
-    try:
-        ano = int(input("Ano de publicação: "))
-        preco = float(input("Preço: "))
-    except ValueError:
-        print("Entrada inválida. Ano deve ser um número inteiro e preço um número decimal.")
-        return
+    
+    # Validação para garantir que os campos de texto não fiquem vazios
+    while True:
+        titulo = input("Título do livro: ")
+        if titulo.strip():
+            break
+        print("O título não pode ser vazio.")
+    
+    while True:
+        autor = input("Autor: ")
+        if autor.strip():
+            break
+        print("O autor não pode ser vazio.")
+    
+    # Validação para ano e preço
+    while True:
+        try:
+            ano_str = input("Ano de publicação: ")
+            ano = int(ano_str)
+            if len(ano_str) == 4:
+                break
+            else:
+                print("Ano inválido. Por favor, insira um ano com 4 dígitos.")
+        except ValueError:
+            print("Entrada inválida. O ano deve ser um número inteiro.")
+            
+    while True:
+        try:
+            preco = float(input("Preço: "))
+            if preco >= 0:
+                break
+            else:
+                print("O preço não pode ser negativo.")
+        except ValueError:
+            print("Entrada inválida. O preço deve ser um número decimal (use '.' como separador).")
 
     conn = conectar_db()
     cursor = conn.cursor()
@@ -88,6 +125,7 @@ def exibir_livros():
     for livro in livros:
         print(f"ID: {livro[0]} | Título: {livro[1]} | Autor: {livro[2]} | Ano: {livro[3]} | Preço: R${livro[4]:.2f}")
     print("--------------------------")
+    return livros # Retorna os livros para uso nos relatórios
 
 def atualizar_preco():
     # Atualiza o preço do livro
@@ -95,6 +133,9 @@ def atualizar_preco():
     try:
         livro_id = int(input("ID do livro para atualizar o preço: "))
         novo_preco = float(input("Novo preço: "))
+        if novo_preco < 0:
+            print("O preço não pode ser negativo.")
+            return
     except ValueError:
         print("Entrada inválida. O ID e o preço devem ser números.")
         return
@@ -196,6 +237,126 @@ def importar_de_csv():
     conn.close()
     print("Dados importados com sucesso!")
 
+def gerar_relatorio():
+    # Função para gerar relatórios em diferentes formatos
+    conn = conectar_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, titulo, autor, ano_publicacao, preco FROM livros")
+    livros = cursor.fetchall()
+    conn.close()
+
+    if not livros:
+        print("Não há livros cadastrados para gerar um relatório.")
+        return
+
+    print("\n--- Geração de Relatório ---")
+    print("Escolha o formato:")
+    print("1. HTML")
+    print("2. PDF")
+    
+    opcao = input("Opção: ")
+    
+    if opcao == '1':
+        gerar_relatorio_html(livros)
+    elif opcao == '2':
+        gerar_relatorio_pdf(livros)
+    else:
+        print("Opção inválida.")
+
+def gerar_relatorio_html(livros):
+    # Gera um relatório em formato HTML 
+    html_path = EXPORTS_DIR / "relatorio_livros.html"
+    
+    # Conteúdo do HTML
+    html_content = f"""
+    <html>
+    <head>
+        <title>Relatório de Livros da Livraria</title>
+        <style>
+            body {{ font-family: sans-serif; }}
+            table {{ width: 100%; border-collapse: collapse; }}
+            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
+            tr:nth-child(even) {{ background-color: #f2f2f2; }}
+            th {{ background-color: #4CAF50; color: white; }}
+        </style>
+    </head>
+    <body>
+        <h1>Relatório de Livros</h1>
+        <p>Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Título</th>
+                <th>Autor</th>
+                <th>Ano</th>
+                <th>Preço</th>
+            </tr>
+    """
+    
+    for livro in livros:
+        html_content += f"""
+            <tr>
+                <td>{livro[0]}</td>
+                <td>{livro[1]}</td>
+                <td>{livro[2]}</td>
+                <td>{livro[3]}</td>
+                <td>R$ {livro[4]:.2f}</td>
+            </tr>
+        """
+        
+    html_content += """
+        </table>
+    </body>
+    </html>
+    """
+    
+    with open(html_path, 'w', encoding='utf-8') as file:
+        file.write(html_content)
+        
+    print(f"Relatório HTML gerado com sucesso em: {html_path}")
+
+def gerar_relatorio_pdf(livros):
+    # Gera um relatório em formato PDF 
+    if not REPORTLAB_DISPONIVEL:
+        print("\nERRO: A biblioteca 'reportlab' é necessária para gerar PDFs.")
+        print("Por favor, instale-a usando o comando: pip install reportlab")
+        return
+
+    pdf_path = EXPORTS_DIR / "relatorio_livros.pdf"
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=letter)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Título
+    elements.append(Paragraph("Relatório de Livros da Livraria", styles['h1']))
+    elements.append(Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+    
+    # Dados da tabela 
+    data = [["ID", "Título", "Autor", "Ano", "Preço"]]
+    for livro in livros:
+        preco_formatado = f"R$ {livro[4]:.2f}"
+        data.append([livro[0], livro[1], livro[2], livro[3], preco_formatado])
+        
+    # Estilo da tabela
+    table = Table(data)
+    style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ])
+    table.setStyle(style)
+    
+    elements.append(table)
+    doc.build(elements)
+    
+    print(f"Relatório PDF gerado com sucesso em: {pdf_path}")
+
+
 def main():
     inicializar_diretorios()
     conectar_db().close()  
@@ -210,7 +371,8 @@ def main():
         print("6. Exportar dados para CSV")
         print("7. Importar dados de CSV")
         print("8. Fazer backup do banco de dados")
-        print("9. Sair")
+        print("9. Gerar relatório (HTML/PDF)")
+        print("10. Sair") 
 
         opcao = input("Escolha uma opção: ")
 
@@ -235,7 +397,9 @@ def main():
         elif opcao == '8':
             fazer_backup()
             limpar_backups()
-        elif opcao == '9':
+        elif opcao == '9': 
+            gerar_relatorio()
+        elif opcao == '10': 
             print("Saindo do sistema. Até logo!")
             break
         else:
