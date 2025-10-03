@@ -1,5 +1,7 @@
 Sistema de Gerenciamento de Livraria
 
+VIDEO EXECUÇÃO: https://drive.google.com/drive/folders/11TRmXB31Wa5YoMbJPTZ3XEcOkm-Qmoc3?usp=sharing
+
 Este é um sistema para gerenciar uma coleção de livros em uma livraria. O projeto foi desenvolvido em Python e utiliza SQLite para o armazenamento de dados. Ele permite operações básicas de CRUD (Criar, Ler, Atualizar, Deletar), além de funcionalidades para importação, exportação, backup e geração de relatórios.
 
 Funcionalidades
